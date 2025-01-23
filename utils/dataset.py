@@ -1,7 +1,9 @@
 
 import yaml
 import os
+import numpy as np
 from PIL import Image
+from scipy.spatial.transform import Rotation as R
 
 
 def list_folders(directory):
@@ -37,9 +39,12 @@ class AdverCityDataset:
         # Getting camera reference position
         with open(os.path.join(self._root, self._cars[self._car], self._timestamps[index]+'.yaml'), 'r') as file:
             data = yaml.safe_load(file)
-        car_speed = data.get('ego_speed')
+        car_speed = data.get('ego_speed') / 3.6
         cam_ref = data.get('camera'+str(self._cam), {}).get('cords')
-        cam_ref = [cam_ref[0], cam_ref[1], cam_ref[2], cam_ref[3], cam_ref[5], cam_ref[4], car_speed]
-        cam_intrinsics = data.get('camera'+str(self._cam), {}).get('intrinsic')
-        cam_image = Image.open(os.path.join(self._root, self._cars[self._car], self._timestamps[index] + '_camera' + str(self._car) + '.png'))
-        return (cam_ref, cam_intrinsics, cam_image)
+        cam_ref = [cam_ref[0], cam_ref[1], cam_ref[2], cam_ref[3], cam_ref[4], cam_ref[5], car_speed]
+        cam_intrinsics = np.array(data.get('camera'+str(self._cam), {}).get('intrinsic'))
+        cam_extrinsics = np.eye(4)
+        cam_extrinsics[:3, 3] = [cam_ref[0], cam_ref[1], cam_ref[2]]
+        cam_extrinsics[:3, :3] = R.from_euler('XYZ', [cam_ref[3], cam_ref[5], cam_ref[4]], degrees=True).as_matrix()
+        cam_image = Image.open(os.path.join(self._root, self._cars[self._car], self._timestamps[index] + '_camera' + str(self._cam) + '.png'))
+        return (cam_ref, cam_intrinsics, cam_extrinsics, cam_image)
